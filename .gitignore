@@ -1,0 +1,52 @@
+# Dependencias del backend y del frontend
+node_modules/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Archivos generados
+dist/
+build/
+coverage/
+.nyc_output/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# Configuracion local de editores
+.vscode/
+.idea/
+*.code-workspace
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Respaldos y exportaciones locales de bases de datos
+backups/
+dumps/
+*.backup
+*.dump
+
+# Datos locales de PostgreSQL
+pgdata/
