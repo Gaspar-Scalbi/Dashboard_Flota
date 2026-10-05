@@ -1,105 +1,142 @@
 # Dashboard_Flota
 
-Proyecto académico de la materia Base de Datos Aplicada.
+Proyecto académico de Base de Datos Aplicada: dashboard de flota para Tablero de flota / la empresa
 
-Tablero web de flota para Tablero de flota / la empresa,
-orientado a consultar información de unidades, choferes,
-cargas de combustible y documentación.
+Actualmente están implementados el inicio de sesión y la pantalla de inicio. Los indicadores, las consultas y el detalle de la flota corresponden a la próxima etapa del proyecto.
 
-## Alcance de la primera etapa
+## Funcionalidades actuales
 
 - Inicio de sesión con nombre de usuario y contraseña.
-- Consulta de usuarios en PostgreSQL.
-- Verificación de contraseñas mediante bcrypt.
-- Validación de cuenta activa y mayoría de edad.
-- Emisión y verificación de JWT.
-- Protección de rutas que requieran autenticación.
+- Verificación de credenciales contra la tabla `Usuarios` de PostgreSQL.
+- Almacenamiento de contraseñas con bcrypt.
+- Control de cuentas activas.
+- Autenticación con JWT y acceso protegido a la pantalla de inicio.
 - Cierre de sesión.
 
-No se incluye el registro público de usuarios.
-La carga inicial de usuarios se realizará de manera controlada,
-almacenando únicamente el hash de la contraseña.
+Los usuarios se crean mediante un script local. No hay registro público ni almacenamiento de un historial de sesiones.
 
-La entidad Sesion queda prevista en el modelo de datos y no se
-utilizará en esta primera implementación.
+## Tecnologías
 
-## Tecnologías previstas
+| Parte | Tecnologías |
+| --- | --- |
+| Frontend | React, Vite, React Router, React Hook Form y Axios. |
+| Backend | Node.js, Express, pg, dotenv, cors y cookie-parser. |
+| Autenticación | bcrypt y jsonwebtoken. |
+| Base de datos | PostgreSQL. |
 
-- Frontend: React.
-- Backend: Node.js y Express.
-- Base de datos: PostgreSQL.
-- Contraseñas: bcrypt.
-- Autenticación: JSON Web Tokens (JWT).
-- Control de versiones: Git y GitHub.
+La organización de archivos sigue el ejemplo de la materia. La conexión y las consultas están adaptadas de MySQL a PostgreSQL.
 
-## Estructura del proyecto
-
-Se conserva la organización general del ejemplo de la materia:
+## Estructura
 
 ```text
 Dashboard_Flota/
-├── src/            # Backend
-├── client/         # Frontend React
-├── db/             # Scripts SQL
+├── src/
+│   ├── controllers/       # Login, cierre de sesión y datos del usuario
+│   ├── middleware/        # Validación del token
+│   ├── libs/              # Generación del JWT
+│   ├── routes/            # Rutas de la API
+│   ├── scripts/           # Creación del usuario inicial
+│   ├── app.js             # Configuración de Express
+│   ├── config.js          # Variables de entorno
+│   ├── db.js              # Conexión con PostgreSQL
+│   └── index.js           # Inicio del servidor
+├── client/                # Frontend React
+├── db/                    # Script de creación de la base de datos
 ├── .gitignore
+├── package.json
 └── README.md
-El ejemplo original utiliza MySQL. Este proyecto utilizará PostgreSQL,
-adaptando la conexión y las consultas correspondientes.
+```
 
-## Modelo de usuario
+## Instalación
 
-La entidad Usuario contempla los siguientes campos:
+Se necesita Node.js, npm y PostgreSQL. El proyecto se desarrolla con Node.js 24.
 
-| Campo | Descripción |
+Desde la raíz del repositorio, instalar las dependencias:
+
+```powershell
+npm install
+cd client
+npm install
+cd ..
+```
+
+### Base de datos
+
+El archivo [db/CreateDb.Sql](db/CreateDb.Sql) contiene la creación de la base `dashboard_flota` y de la tabla `Usuarios`.
+
+En pgAdmin:
+
+1. Abrir el Query Tool de la base `postgres` y ejecutar la sentencia de creación de la base.
+2. Actualizar la lista de bases de datos.
+3. Abrir el Query Tool de `dashboard_flota` y ejecutar la sentencia de creación de la tabla.
+
+Esta preparación se realiza una sola vez por base de datos.
+
+### Configuración del backend
+
+El backend carga las variables de entorno desde un archivo `.env.local` ubicado en la raíz del repositorio. Allí se configuran la conexión con PostgreSQL y la clave utilizada para firmar los JWT.
+
+La contraseña de PostgreSQL permite acceder a la base de datos. La clave de firma permite generar y verificar los tokens de autenticación. Estos valores son privados, se configuran en cada equipo y no se publican en GitHub. El archivo `.env.local` está excluido de Git por `.gitignore`.
+
+### Usuario inicial
+
+El script `src/scripts/create-user.js` crea las cuentas iniciales en la tabla `Usuarios`. Genera el hash de la contraseña con bcrypt y guarda la cuenta en PostgreSQL.
+
+Los usuarios permanecen en la base de datos entre ejecuciones. Si el nombre de usuario ya existe, el script conserva la cuenta existente.
+
+## Ejecución
+
+Mantener PostgreSQL en funcionamiento y abrir dos terminales.
+
+**Backend:** desde la raíz del repositorio:
+
+```powershell
+npm run dev
+```
+
+La API se ejecuta en `http://localhost:3000/api`.
+
+**Frontend:** en la segunda terminal, desde la raíz:
+
+```powershell
+cd client
+npm run dev
+```
+
+Abrir [http://localhost:5173/](http://localhost:5173/) e ingresar con el usuario creado.
+
+## Funcionamiento del login
+
+El frontend envía el nombre de usuario y la contraseña a la API. El backend busca la cuenta en PostgreSQL, compara la contraseña con el hash mediante bcrypt y comprueba que esté activa.
+
+Si las credenciales son correctas, genera un JWT válido durante 30 minutos y lo envía en una cookie HttpOnly. React redirige a la pantalla de inicio. Si las credenciales son incorrectas o la cuenta está inactiva, se muestra un mensaje y se impide el ingreso.
+
+Al cargar la aplicación se verifica el token para recuperar el usuario autenticado. La API comprueba su firma y vencimiento, y consulta si la cuenta sigue activa. Al cerrar sesión, elimina la cookie del navegador.
+
+### Rutas de la API
+
+| Método | Ruta | Función |
+| --- | --- | --- |
+| POST | `/api/login` | Verifica las credenciales y genera el token. |
+| POST | `/api/logout` | Cierra la sesión: elimina la cookie y el token deja de ser válido. |
+| GET | `/api/verifyToken` | Verifica el token y devuelve el usuario autenticado. |
+| GET | `/api/profile` | Devuelve los datos del usuario mediante una ruta protegida. |
+
+### Tabla de usuarios
+
+| Campo | Función |
 | --- | --- |
-| idUsuario | Identificador único del usuario. |
-| nombreUsuario | Nombre único utilizado para iniciar sesión. |
-| nombre | Nombre de la persona. |
-| contrasenaHash | Hash de la contraseña generado con bcrypt. |
-| fechaNacimiento | Fecha utilizada para validar la mayoría de edad. |
-| activo | Indica si la cuenta tiene permitido el acceso. |
+| `idUsuario` | Identificador único generado por la base de datos. |
+| `nombreUsuario` | Nombre único utilizado para iniciar sesión. |
+| `nombre` | Nombre de la persona. |
+| `contrasenaHash` | Hash de la contraseña generado con bcrypt. |
+| `activo` | Indica si la cuenta tiene acceso al sistema. |
 
-## Autenticación prevista
+## Próxima etapa
 
-El backend verificará que la cuenta esté activa, que el usuario tenga
-al menos 18 años y que la contraseña coincida con el hash almacenado.
+El dashboard permitirá consultar unidades, choferes, asignaciones, cargas de combustible y documentación con sus vencimientos. Incluirá indicadores y navegación hacia el detalle de los datos.
 
-Cuando las validaciones sean correctas, emitirá un JWT con una duración
-de 30 minutos. El token se enviará mediante una cookie HttpOnly,
-con SameSite y con Secure cuando se utilice HTTPS.
-
-Las rutas protegidas verificarán la firma y el vencimiento del token,
-además de comprobar que el usuario continúe activo.
-
-El cierre de sesión eliminará la cookie. Mientras no se implemente
-el registro de sesiones, el JWT emitido conservará su validez hasta
-su vencimiento.
-
-## Configuración y ejecución
-
-Las instrucciones de instalación, las variables de entorno y los
-comandos de ejecución se incorporarán a medida que se implemente
-y verifique cada componente.
-
-Las credenciales de PostgreSQL y la clave de firma de JWT se
-configurarán mediante variables de entorno.
-
-Los archivos .env no se incluirán en el repositorio. Se incorporará
-un archivo .env.example con valores de ejemplo y sin secretos.
-
-## Alcance futuro
-
-Una vez completada la autenticación, el tablero permitirá consultar:
-
-- Unidades y estados de la flota.
-- Choferes y asignaciones.
-- Cargas de combustible.
-- Documentación y vencimientos.
-- Indicadores y navegación hacia el detalle.
-
-El tablero será de unicamente de consulta, sin ABM, ni nada relacionado. 
-
-Para las demostraciones se utilizarán datos ficticios.
+El tablero será de consulta y las demostraciones utilizarán datos ficticios.
 
 ## Autor
 
