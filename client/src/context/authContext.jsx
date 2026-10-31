@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import axios from "../api/axios.js";
 import { loginRequest, logoutRequest, verifyTokenRequest } from "../api/auth.js";
 
 const AuthContext = createContext(null);
@@ -20,6 +21,17 @@ export function AuthProvider({ children }) {
         setIsAuth(false);
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(undefined, (error) => {
+      if (error.response?.status === 401 && error.config.url !== "/login") {
+        setUser(null);
+        setIsAuth(false);
+      }
+      return Promise.reject(error);
+    });
+    return () => axios.interceptors.response.eject(interceptor);
   }, []);
 
   async function signin(datos) {
