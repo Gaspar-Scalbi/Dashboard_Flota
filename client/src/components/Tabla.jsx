@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SIN_DATO, SIN_TRAMO } from "../utils/formato.js";
+import { precargar } from "../api/cache.js";
 
 const VALORES_APAGADOS = new Set([SIN_DATO, SIN_TRAMO, "Sin fecha", "Sin asignación"]);
 
@@ -9,7 +10,7 @@ function Celda({ valor }) {
 }
 
 export default function Tabla({
-  columnas, filas, clave, destino, textoEnlace = "Ver detalle", porPagina = 12,
+  columnas, filas, clave, destino, precarga, textoEnlace = "Ver detalle", porPagina = 12,
   vacio = "No hay registros para mostrar."
 }) {
   const navigate = useNavigate();
@@ -36,7 +37,8 @@ export default function Tabla({
               const ruta = destino?.(fila);
               return (
                 <tr key={clave(fila)} className={ruta ? "elegible" : undefined}
-                  onClick={ruta ? () => navigate(ruta) : undefined}>
+                  onClick={ruta ? () => navigate(ruta) : undefined}
+                  onMouseEnter={precarga ? () => precargar(precarga(fila)) : undefined}>
                   {columnas.map((columna) => (
                     <td key={columna.titulo} className={columna.clase}><Celda valor={columna.valor(fila)} /></td>
                   ))}

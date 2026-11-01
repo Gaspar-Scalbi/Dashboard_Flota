@@ -274,6 +274,15 @@ button, input { font: inherit; }
 .mensajeEstado.error { border-color: var(--peligro-borde); color: var(--peligro); }
 .nota { margin: 0; color: var(--tinta-3); font-size: 13px; line-height: 1.5; }
 
+.esqueleto { display: flex; flex-direction: column; gap: 18px; }
+.bloque { border: 1px solid var(--linea-suave); border-radius: var(--radio-card);
+  background: linear-gradient(100deg, var(--panel) 30%, var(--hueco) 50%, var(--panel) 70%) 0 0 / 300% 100%;
+  animation: brillo 1.3s ease-in-out infinite; }
+.tarjetaVacia { height: 96px; }
+.panelVacio { height: 300px; }
+@keyframes brillo { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .bloque { animation: none; } }
+
 .semaforo { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--linea); border-radius: var(--radio-pill); background: var(--hueco); color: var(--tinta-3); font-size: 13px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
 .semaforo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .semaforo.verde, .chip.verde { border-color: var(--ok-borde); background: var(--ok-tenue); color: var(--ok); }

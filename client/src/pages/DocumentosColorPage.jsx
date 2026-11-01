@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getDocumentosDelColorRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Panel from "../components/Panel.jsx";
@@ -10,7 +10,7 @@ import { dias, fecha } from "../utils/formato.js";
 
 export default function DocumentosColorPage() {
   const { color } = useParams();
-  const consulta = useConsulta(() => getDocumentosDelColorRequest(color), [color]);
+  const consulta = useConsulta(RUTAS.documentosDelColor(color));
   const nombre = DOCUMENTOS_COLOR[color] ?? color;
 
   return (
@@ -26,6 +26,7 @@ export default function DocumentosColorPage() {
             <Panel titulo={`${documentos.length} documentos`}>
               <Tabla filas={documentos} clave={(d) => d.idDocumentoUnidad} textoEnlace="Ver unidad"
                 destino={(d) => `/documentacion/${color}/unidad/${d.idUnidad}`}
+                precarga={(d) => RUTAS.unidad(d.idUnidad)}
                 vacio="No hay documentos en esta situación."
                 columnas={[
                   { titulo: "Unidad", clase: "mono", valor: (d) => d.interno },

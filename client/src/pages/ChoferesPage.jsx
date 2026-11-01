@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getChoferesRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -12,7 +12,7 @@ import { numero } from "../utils/formato.js";
 
 export default function ChoferesPage() {
   const navigate = useNavigate();
-  const consulta = useConsulta(getChoferesRequest, []);
+  const consulta = useConsulta(RUTAS.choferes);
 
   return (
     <>

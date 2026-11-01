@@ -37,8 +37,18 @@ export function instante(iso) {
   if (!iso) return SIN_DATO;
   return new Date(iso).toLocaleString("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
-    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false
   });
+}
+
+export function haceCuanto(iso) {
+  const minutos = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60_000));
+  if (minutos < 1) return "recién";
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.round(horas / 24);
+  return `hace ${dias} ${dias === 1 ? "día" : "días"}`;
 }
 
 export function nombreMes(mes) {

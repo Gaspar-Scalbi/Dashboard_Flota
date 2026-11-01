@@ -1,11 +1,12 @@
 import { nuevoContexto, validar } from "./validar.js";
 
 const LOTE = 500;
-const TABLAS_DEL_MODELO = [
-  "CargasCombustible", "DocumentosUnidad", "AsignacionesChofer", "Choferes", "Unidades", "TiposDocumento", "TiposUnidad"
-];
 
-export async function insertar(db, tabla, columnas, filas) {
+export async function insertar(db, tabla, columnas, filas, clave = null) {
+  const actualizar = clave
+    ? ` ON CONFLICT ("${clave}") DO UPDATE SET ${columnas.filter((c) => c !== clave)
+      .map((c) => `"${c}" = EXCLUDED."${c}"`).join(", ")}`
+    : "";
   for (let inicio = 0; inicio < filas.length; inicio += LOTE) {
     const valores = [];
     const renglones = filas.slice(inicio, inicio + LOTE).map((fila) => {
@@ -16,7 +17,7 @@ export async function insertar(db, tabla, columnas, filas) {
       return `(${marcas.join(", ")})`;
     });
     await db.query(
-      `INSERT INTO ${tabla} (${columnas.map((columna) => `"${columna}"`).join(", ")}) VALUES ${renglones.join(", ")}`,
+      `INSERT INTO ${tabla} (${columnas.map((columna) => `"${columna}"`).join(", ")}) VALUES ${renglones.join(", ")}${actualizar}`,
       valores
     );
   }
@@ -44,55 +45,91 @@ async function idsDeTiposCombustible(cliente, nombres) {
 
 const esBaja = (unidad) => unidad.eliminada || unidad.activa === false || unidad.estado === "Baja";
 
-export async function cargarModelo(cliente) {
-  const registrosDe = await leerZonaPrevia(cliente);
-  for (const tabla of TABLAS_DEL_MODELO) {
-    await cliente.query(`DELETE FROM "${tabla}"`);
-  }
+const TABLAS = {
+  TipoUnidad: ["TiposUnidad", "idTipoUnidad", ["idTipoUnidad", "nombre"]],
+  Unidad: ["Unidades", "idUnidad", ["idUnidad", "idTipoUnidad", "interno", "patente", "estado", "kilometraje"]],
+  Chofer: ["Choferes", "idChofer", ["idChofer", "nombre", "apellido", "numeroLicencia", "vencimientoLicencia", "activo"]],
+  AsignacionChofer: ["AsignacionesChofer", "idAsignacionChofer",
+    ["idAsignacionChofer", "idUnidad", "idChofer", "fechaInicio", "fechaFin"]],
+  TipoDocumento: ["TiposDocumento", "idTipoDocumento", ["idTipoDocumento", "nombre"]],
+  DocumentoUnidad: ["DocumentosUnidad", "idDocumentoUnidad",
+    ["idDocumentoUnidad", "idUnidad", "idTipoDocumento", "fechaEmision", "fechaVencimiento"]],
+  CargaCombustible: ["CargasCombustible", "idCargaCombustible",
+    ["idCargaCombustible", "idUnidad", "idChofer", "idTipoCombustible", "fecha", "cantidad", "unidadMedida",
+      "kilometraje", "lugar", "fuente"]]
+};
 
+// Se borra lo que ya no está en el origen, salvo que otra tabla todavía lo use.
+const SIN_REFERENCIAS = {
+  Unidades: `NOT EXISTS (SELECT 1 FROM "CargasCombustible" x WHERE x."idUnidad" = t."idUnidad")
+             AND NOT EXISTS (SELECT 1 FROM "AsignacionesChofer" x WHERE x."idUnidad" = t."idUnidad")
+             AND NOT EXISTS (SELECT 1 FROM "DocumentosUnidad" x WHERE x."idUnidad" = t."idUnidad")`,
+  Choferes: `NOT EXISTS (SELECT 1 FROM "CargasCombustible" x WHERE x."idChofer" = t."idChofer")
+             AND NOT EXISTS (SELECT 1 FROM "AsignacionesChofer" x WHERE x."idChofer" = t."idChofer")`,
+  TiposDocumento: `NOT EXISTS (SELECT 1 FROM "DocumentosUnidad" x WHERE x."idTipoDocumento" = t."idTipoDocumento")`,
+  TiposUnidad: `NOT EXISTS (SELECT 1 FROM "Unidades" x WHERE x."idTipoUnidad" = t."idTipoUnidad")`
+};
+
+// Completa: vacía y recarga. Incremental: de las cargas solo toca las posteriores a desdeCarga.
+export async function cargarModelo(cliente, { desdeCarga = 0 } = {}) {
+  const registrosDe = await leerZonaPrevia(cliente);
   const contexto = nuevoContexto();
+  const validas = {};
   const detalle = {};
 
-  async function cargar(entidad, tabla, columnas, registros, preparar = (filas) => filas) {
+  function validarEntidad(entidad, registros) {
     const { filas, motivos } = validar(entidad, registros, contexto);
-    await insertar(cliente, `"${tabla}"`, columnas, await preparar(filas));
+    validas[entidad] = filas;
     detalle[entidad] = {
       recibidos: registros.length, cargados: filas.length, rechazados: registros.length - filas.length, motivos
     };
     return filas;
   }
 
-  const tiposUnidad = await cargar("TipoUnidad", "TiposUnidad", ["idTipoUnidad", "nombre"], registrosDe("TipoUnidad"));
-  tiposUnidad.forEach((fila) => contexto.tiposUnidad.add(fila.idTipoUnidad));
-
+  validarEntidad("TipoUnidad", registrosDe("TipoUnidad")).forEach((f) => contexto.tiposUnidad.add(f.idTipoUnidad));
   // Ante internos o patentes repetidos se conserva primero la unidad que no está de baja.
-  const unidadesOrdenadas = [...registrosDe("Unidad")].sort((a, b) => esBaja(a) - esBaja(b) || a.idUnidad - b.idUnidad);
-  const unidades = await cargar("Unidad", "Unidades",
-    ["idUnidad", "idTipoUnidad", "interno", "patente", "estado", "kilometraje"], unidadesOrdenadas);
-  unidades.forEach((fila) => contexto.unidades.add(fila.idUnidad));
+  const unidades = [...registrosDe("Unidad")].sort((a, b) => esBaja(a) - esBaja(b) || a.idUnidad - b.idUnidad);
+  validarEntidad("Unidad", unidades).forEach((f) => contexto.unidades.add(f.idUnidad));
+  validarEntidad("Chofer", registrosDe("Chofer")).forEach((f) => contexto.choferes.add(f.idChofer));
+  validarEntidad("AsignacionChofer", registrosDe("AsignacionChofer"));
+  validarEntidad("TipoDocumento", registrosDe("TipoDocumento")).forEach((f) => contexto.tiposDocumento.add(f.idTipoDocumento));
+  validarEntidad("DocumentoUnidad", registrosDe("DocumentoUnidad"));
+  validarEntidad("CargaCombustible", registrosDe("CargaCombustible"));
 
-  const choferes = await cargar("Chofer", "Choferes",
-    ["idChofer", "nombre", "apellido", "numeroLicencia", "vencimientoLicencia", "activo"], registrosDe("Chofer"));
-  choferes.forEach((fila) => contexto.choferes.add(fila.idChofer));
+  const ids = (entidad) => validas[entidad].map((fila) => fila[TABLAS[entidad][1]]);
 
-  await cargar("AsignacionChofer", "AsignacionesChofer",
-    ["idAsignacionChofer", "idUnidad", "idChofer", "fechaInicio", "fechaFin"], registrosDe("AsignacionChofer"));
+  if (!desdeCarga) {
+    for (const entidad of ["CargaCombustible", "DocumentoUnidad", "AsignacionChofer", "Chofer", "Unidad", "TipoDocumento", "TipoUnidad"]) {
+      await cliente.query(`DELETE FROM "${TABLAS[entidad][0]}"`);
+    }
+  }
 
-  const tiposDocumento = await cargar("TipoDocumento", "TiposDocumento",
-    ["idTipoDocumento", "nombre"], registrosDe("TipoDocumento"));
-  tiposDocumento.forEach((fila) => contexto.tiposDocumento.add(fila.idTipoDocumento));
+  await cliente.query(
+    `DELETE FROM "CargasCombustible" WHERE "idCargaCombustible" > $1 AND NOT ("idCargaCombustible" = ANY($2))`,
+    [desdeCarga, ids("CargaCombustible")]
+  );
+  for (const entidad of ["DocumentoUnidad", "AsignacionChofer"]) {
+    const [tabla, clave] = TABLAS[entidad];
+    await cliente.query(`DELETE FROM "${tabla}" WHERE NOT ("${clave}" = ANY($1))`, [ids(entidad)]);
+  }
+  for (const entidad of ["Unidad", "Chofer", "TipoDocumento", "TipoUnidad"]) {
+    const [tabla, clave] = TABLAS[entidad];
+    await cliente.query(
+      `DELETE FROM "${tabla}" t WHERE NOT (t."${clave}" = ANY($1)) AND ${SIN_REFERENCIAS[tabla]}`,
+      [ids(entidad)]
+    );
+  }
 
-  await cargar("DocumentoUnidad", "DocumentosUnidad",
-    ["idDocumentoUnidad", "idUnidad", "idTipoDocumento", "fechaEmision", "fechaVencimiento"], registrosDe("DocumentoUnidad"));
+  for (const entidad of ["TipoUnidad", "Unidad", "Chofer", "TipoDocumento", "AsignacionChofer", "DocumentoUnidad"]) {
+    const [tabla, clave, columnas] = TABLAS[entidad];
+    await insertar(cliente, `"${tabla}"`, columnas, validas[entidad], clave);
+  }
 
-  await cargar("CargaCombustible", "CargasCombustible",
-    ["idCargaCombustible", "idUnidad", "idChofer", "idTipoCombustible", "fecha", "cantidad", "unidadMedida",
-      "kilometraje", "lugar", "fuente"],
-    registrosDe("CargaCombustible"),
-    async (filas) => {
-      const ids = await idsDeTiposCombustible(cliente, [...new Set(filas.map((fila) => fila.tipoCombustible))]);
-      return filas.map((fila) => ({ ...fila, idTipoCombustible: ids.get(fila.tipoCombustible) }));
-    });
+  const cargas = validas.CargaCombustible;
+  const tipos = await idsDeTiposCombustible(cliente, [...new Set(cargas.map((fila) => fila.tipoCombustible))]);
+  const [tabla, clave, columnas] = TABLAS.CargaCombustible;
+  await insertar(cliente, `"${tabla}"`, columnas,
+    cargas.map((fila) => ({ ...fila, idTipoCombustible: tipos.get(fila.tipoCombustible) })), clave);
 
   return detalle;
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getDocumentosRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -19,7 +19,7 @@ const DETALLE = {
 
 export default function DocumentosPage() {
   const navigate = useNavigate();
-  const consulta = useConsulta(getDocumentosRequest, []);
+  const consulta = useConsulta(RUTAS.documentos);
   const series = ORDEN_COLORES.map((color) => ({ clave: color, nombre: DOCUMENTOS_COLOR[color], color: COLOR[color] }));
 
   return (

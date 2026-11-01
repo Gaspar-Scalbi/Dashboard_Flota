@@ -45,16 +45,8 @@ export const LICENCIAS = `
   LEFT JOIN "Unidades" u ON u."idUnidad" = a."idUnidad"
   WHERE c.activo`;
 
-// Cargas con su tramo de consumo. Algunas fuentes (por ejemplo, ciertas tarjetas de combustible) informan otro
-// contador o un kilometraje mal tipeado, así que no toda carga sirve como lectura de odómetro:
-// - referencia: el kilometraje oficial de la unidad. Si la mediana de sus últimas 5 lecturas lo
-//   supera por hasta 50.000 km, el oficial está desactualizado y se usa esa mediana.
-// - confiable: la lectura no supera la referencia (con 2.000 km de margen) y la distancia hasta
-//   ella se puede recorrer con lo cargado después (a lo sumo 15 km por litro o m³).
-// - Cada lectura confiable cierra un tramo desde la lectura confiable anterior; el tramo suma la
-//   cantidad de todas sus cargas, también la de las que tienen la lectura descartada.
-// - El tramo es válido si recorrió más de 0 km y consumió entre 5 y 100 por cada 100 km.
-export const CARGAS = `
+// Cargas con su tramo de consumo entre lecturas de odómetro confiables; cargasDe("$1") filtra una unidad.
+export const cargasDe = (idUnidad = null) => `
   WITH referencias AS (
       SELECT u."idUnidad",
              CASE WHEN m.mediana > u.kilometraje AND m.mediana <= u.kilometraje + 50000 THEN m.mediana
@@ -69,6 +61,7 @@ export const CARGAS = `
               LIMIT 5
           ) ultimas
       ) m ON TRUE
+      ${idUnidad ? `WHERE u."idUnidad" = ${idUnidad}` : ""}
   ),
   base AS (
       SELECT c."idCargaCombustible", c."idUnidad", c."unidadMedida", c.fecha, c.cantidad, c.kilometraje,
@@ -110,10 +103,9 @@ export const CARGAS = `
   LEFT JOIN recorridos r
       ON r."idUnidad" = a."idUnidad" AND r."unidadMedida" = a."unidadMedida" AND r.tramo = a.tramo`;
 
-// Eficiencia (cantidad cada 100 km) por unidad y unidad de medida en un período, y su semáforo:
-// verde igual o mejor que las unidades del mismo tipo, amarillo hasta 15 % peor, rojo más de 15 % peor,
-// gris sin tramos válidos o con menos de la mitad del consumo de su tipo (faltan cargas registradas).
-// Las cantidades en L y en m³ nunca se mezclan.
+export const CARGAS = cargasDe();
+
+// Eficiencia cada 100 km por unidad en un período y su semáforo frente a las de su tipo.
 export const eficiencia = (desde, hasta) => `
   WITH periodo AS (
       SELECT i."idUnidad", i."unidadMedida", COUNT(*)::int AS cargas, SUM(i.cantidad) AS "cantidadTotal",

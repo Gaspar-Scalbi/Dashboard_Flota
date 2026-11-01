@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getCargasDeUnidadRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -16,7 +16,7 @@ const TONO = { verde: "verde", amarillo: "amarillo", rojo: "rojo", gris: "" };
 
 export default function CombustibleUnidadPage() {
   const { mes, idUnidad } = useParams();
-  const consulta = useConsulta(() => getCargasDeUnidadRequest(mes, idUnidad), [mes, idUnidad]);
+  const consulta = useConsulta(RUTAS.cargasDeUnidad(mes, idUnidad));
   const interno = consulta.datos?.unidad.interno ?? "";
 
   return (

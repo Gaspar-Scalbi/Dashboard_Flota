@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getMesRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -19,7 +19,7 @@ function referencias(unidades) {
 
 export default function CombustibleMesPage() {
   const { mes } = useParams();
-  const consulta = useConsulta(() => getMesRequest(mes), [mes]);
+  const consulta = useConsulta(RUTAS.mes(mes));
   const titulo = nombreMes(mes);
 
   return (
@@ -46,6 +46,7 @@ export default function CombustibleMesPage() {
                 descripcion={`Cada unidad se compara con la eficiencia de su tipo en el mes: ${referencias(unidades)}.`}>
                 <Tabla filas={unidades} clave={(u) => `${u.idUnidad}-${u.unidadMedida}`} textoEnlace="Ver cargas"
                   destino={(u) => `/combustible/${mes}/unidad/${u.idUnidad}`}
+                precarga={(u) => RUTAS.cargasDeUnidad(mes, u.idUnidad)}
                   vacio="No hay cargas registradas en este mes."
                   columnas={[
                     { titulo: "Interno", clase: "mono", valor: (u) => u.interno },

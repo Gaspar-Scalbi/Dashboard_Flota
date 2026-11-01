@@ -1,6 +1,6 @@
 import { useLocation, useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getUnidadRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -31,7 +31,7 @@ function migasDelRecorrido(recorrido, estado, color) {
 export default function UnidadPage() {
   const { estado, color, idUnidad } = useParams();
   const recorrido = useLocation().pathname.split("/")[1];
-  const consulta = useConsulta(() => getUnidadRequest(idUnidad), [idUnidad]);
+  const consulta = useConsulta(RUTAS.unidad(idUnidad));
   const interno = consulta.datos?.unidad.interno;
   const migas = [...migasDelRecorrido(recorrido, estado, color), { texto: `Unidad ${interno ?? ""}`, a: "" }];
 

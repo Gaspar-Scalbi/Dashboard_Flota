@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import axios from "../api/axios.js";
+import { vaciar } from "../api/cache.js";
 import { loginRequest, logoutRequest, verifyTokenRequest } from "../api/auth.js";
 
 const AuthContext = createContext(null);
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(undefined, (error) => {
       if (error.response?.status === 401 && error.config.url !== "/login") {
+        vaciar();
         setUser(null);
         setIsAuth(false);
       }
@@ -47,6 +49,7 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     await logoutRequest();
+    vaciar();
     setUser(null);
     setIsAuth(false);
   }

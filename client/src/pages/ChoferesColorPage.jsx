@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getChoferesDelColorRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Panel from "../components/Panel.jsx";
@@ -10,7 +10,7 @@ import { dias, fecha, SIN_DATO } from "../utils/formato.js";
 
 export default function ChoferesColorPage() {
   const { color } = useParams();
-  const consulta = useConsulta(() => getChoferesDelColorRequest(color), [color]);
+  const consulta = useConsulta(RUTAS.choferesDelColor(color));
   const nombre = LICENCIAS_COLOR[color] ?? color;
 
   return (
@@ -26,6 +26,7 @@ export default function ChoferesColorPage() {
             <Panel titulo={`${choferes.length} choferes activos`}>
               <Tabla filas={choferes} clave={(c) => c.idChofer} textoEnlace="Ver unidad"
                 destino={(c) => (c.idUnidad ? `/choferes/${color}/unidad/${c.idUnidad}` : null)}
+                precarga={(c) => c.idUnidad && RUTAS.unidad(c.idUnidad)}
                 vacio="No hay choferes en esta situación."
                 columnas={[
                   { titulo: "Chofer", valor: (c) => `${c.apellido}, ${c.nombre}` },

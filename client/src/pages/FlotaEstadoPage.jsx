@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getUnidadesDelEstadoRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -11,7 +11,7 @@ import { kilometros, nombreCompleto, numero } from "../utils/formato.js";
 
 export default function FlotaEstadoPage() {
   const { estado } = useParams();
-  const consulta = useConsulta(() => getUnidadesDelEstadoRequest(estado), [estado]);
+  const consulta = useConsulta(RUTAS.estado(estado));
   const rutaEstado = `/flota/${encodeURIComponent(estado)}`;
 
   return (
@@ -37,6 +37,7 @@ export default function FlotaEstadoPage() {
               <Panel titulo={`Unidades del estado ${estado}`}>
                 <Tabla filas={unidades} clave={(u) => u.idUnidad} textoEnlace="Ver unidad"
                   destino={(u) => `${rutaEstado}/unidad/${u.idUnidad}`}
+                precarga={(u) => RUTAS.unidad(u.idUnidad)}
                   vacio="No hay unidades en este estado."
                   columnas={[
                     { titulo: "Interno", clase: "mono", valor: (u) => u.interno },

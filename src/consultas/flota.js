@@ -1,6 +1,7 @@
 import { pool } from "../db.js";
+import { eficienciaDeUnidades12Meses } from "./combustible.js";
 import {
-  ESTADOS, DESDE_12_MESES, HASTA_12_MESES, UNIDADES, DOCUMENTOS, CARGAS, eficiencia, semaforoVencimiento
+  ESTADOS, DESDE_12_MESES, UNIDADES, DOCUMENTOS, cargasDe, semaforoVencimiento
 } from "./comunes.js";
 
 export async function unidadesPorEstado() {
@@ -63,7 +64,7 @@ export async function detalleUnidad(idUnidad) {
     !usaCombustible ? sinFilas : pool.query(
       `SELECT i."idCargaCombustible", i.fecha, i.cantidad, i."unidadMedida", i.kilometraje, i.confiable, i.km, i.valido,
               t.nombre AS "tipoCombustible", c.lugar
-       FROM (${CARGAS}) i
+       FROM (${cargasDe("$1")}) i
        JOIN "CargasCombustible" c ON c."idCargaCombustible" = i."idCargaCombustible"
        JOIN "TiposCombustible" t ON t."idTipoCombustible" = c."idTipoCombustible"
        WHERE i."idUnidad" = $1 AND i.fecha >= ${DESDE_12_MESES}
@@ -71,19 +72,13 @@ export async function detalleUnidad(idUnidad) {
        LIMIT 15`,
       [idUnidad]
     ),
-    !usaCombustible ? sinFilas : pool.query(
-      `SELECT "unidadMedida", cargas, "cantidadTotal", km, eficiencia, referencia, semaforo
-       FROM (${eficiencia(DESDE_12_MESES, HASTA_12_MESES)}) e
-       WHERE "idUnidad" = $1
-       ORDER BY "unidadMedida"`,
-      [idUnidad]
-    )
+    !usaCombustible ? [] : eficienciaDeUnidades12Meses()
   ]);
 
   return {
     unidad: unidad.rows[0],
     documentos: documentos.rows,
     cargas: cargas.rows,
-    eficiencia: consumo.rows
+    eficiencia: consumo.filter((fila) => fila.idUnidad === idUnidad)
   };
 }

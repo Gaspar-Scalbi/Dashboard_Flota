@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getTableroRequest } from "../api/tablero.js";
+import { RUTAS } from "../api/tablero.js";
 import Encabezado from "../components/Encabezado.jsx";
 import Contenido from "../components/Contenido.jsx";
 import Tarjeta from "../components/Tarjeta.jsx";
@@ -11,7 +11,7 @@ import { cantidad, nombreMes, numero } from "../utils/formato.js";
 
 export default function InicioPage() {
   const navigate = useNavigate();
-  const consulta = useConsulta(getTableroRequest, []);
+  const consulta = useConsulta(RUTAS.tablero);
 
   return (
     <>

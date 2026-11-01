@@ -1,26 +1,19 @@
 import { useEffect, useState } from "react";
+import { leer, pedir, suscribir } from "../api/cache.js";
 
-export function useConsulta(pedido, dependencias) {
-  const [estado, setEstado] = useState({ datos: null, cargando: true, error: "" });
+export function useConsulta(ruta) {
+  const [datos, setDatos] = useState(() => leer(ruta) ?? null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let vigente = true;
-    setEstado({ datos: null, cargando: true, error: "" });
-    pedido()
-      .then((respuesta) => {
-        if (vigente) setEstado({ datos: respuesta.data, cargando: false, error: "" });
-      })
-      .catch((error) => {
-        if (vigente) {
-          setEstado({
-            datos: null,
-            cargando: false,
-            error: error.response?.data?.error || "No se pudo conectar con el servidor."
-          });
-        }
-      });
-    return () => { vigente = false; };
-  }, dependencias);
+    setDatos(leer(ruta) ?? null);
+    setError("");
+    const desuscribir = suscribir(ruta, setDatos);
+    pedir(ruta).catch((e) => {
+      if (!leer(ruta)) setError(e.response?.data?.error || "No se pudo conectar con el servidor.");
+    });
+    return desuscribir;
+  }, [ruta]);
 
-  return estado;
+  return { datos, error, cargando: datos === null && !error };
 }

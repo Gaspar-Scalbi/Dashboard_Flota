@@ -1,8 +1,12 @@
+import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/authContext.jsx";
 import { useConsulta } from "../hooks/useConsulta.js";
-import { getImportacionRequest } from "../api/tablero.js";
-import { instante } from "../utils/formato.js";
+import { RUTAS } from "../api/tablero.js";
+import { pedir, precargarTablero, refrescarTodo } from "../api/cache.js";
+import { haceCuanto, instante } from "../utils/formato.js";
+
+const REFRESCO_MINUTOS = 10;
 
 const ICONOS = {
   inicio: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
@@ -30,11 +34,12 @@ function Icono({ nombre }) {
 
 function EstadoDatos({ consulta }) {
   const datos = consulta.datos;
-  if (!datos) return <span>Consultando la última importación…</span>;
+  if (!datos) return null;
   if (!datos.ultimaCargaExitosa) return <span className="aviso">Todavía no se importaron datos del SGU.</span>;
   return (
     <span>
-      Datos del SGU al {instante(datos.datosAl)}
+      Datos del SGU al {instante(datos.datosAl)} ({haceCuanto(datos.datosAl)})
+      {datos.resultadoUltimoIntento === "pausado" && " · El SGU no está publicando: se muestran los últimos datos"}
       {datos.resultadoUltimoIntento === "error" && (
         <span className="aviso" title={datos.mensajeUltimoIntento}> · La última actualización falló</span>
       )}
@@ -45,7 +50,17 @@ function EstadoDatos({ consulta }) {
 export default function Layout() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
-  const importacion = useConsulta(getImportacionRequest, [pathname]);
+  const importacion = useConsulta(RUTAS.importacion);
+
+  useEffect(() => {
+    precargarTablero();
+    const intervalo = setInterval(refrescarTodo, REFRESCO_MINUTOS * 60_000);
+    return () => clearInterval(intervalo);
+  }, []);
+
+  useEffect(() => {
+    pedir(RUTAS.importacion).catch(() => {});
+  }, [pathname]);
 
   return (
     <div className="app">

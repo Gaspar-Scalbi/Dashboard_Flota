@@ -1,6 +1,7 @@
 import { pool } from "../db.js";
+import { enCache } from "../libs/cache.js";
 import {
-  DESDE_12_MESES, HASTA_12_MESES, UNIDADES, CARGAS, eficiencia, contarColores
+  DESDE_12_MESES, HASTA_12_MESES, UNIDADES, cargasDe, eficiencia, contarColores
 } from "./comunes.js";
 
 export async function consumoMensual() {
@@ -42,8 +43,15 @@ export async function semaforoEficiencia12Meses() {
   return contarColores(rows);
 }
 
+// Eficiencia de todas las unidades en un período; la ficha de una unidad toma su fila de acá.
+export const eficienciaDeUnidades12Meses = () => enCache("eficiencia/12meses", async () =>
+  (await pool.query(`SELECT * FROM (${eficiencia(DESDE_12_MESES, HASTA_12_MESES)}) e`)).rows);
+
 const INICIO_MES = `to_date($1, 'YYYY-MM')::timestamp`;
 const FIN_MES = `to_date($1, 'YYYY-MM')::timestamp + interval '1 month'`;
+
+export const eficienciaDeUnidadesDelMes = (mes) => enCache(`eficiencia/${mes}`, async () =>
+  (await pool.query(`SELECT * FROM (${eficiencia(INICIO_MES, FIN_MES)}) e`, [mes])).rows);
 
 export async function unidadesDelMes(mes) {
   const [unidades, flota] = await Promise.all([
@@ -66,13 +74,13 @@ export async function cargasDeUnidadEnMes(idUnidad, mes) {
   );
   if (unidad.rows.length === 0) return null;
 
-  const [cargas, consumo] = await Promise.all([
+  const [cargas, delMes] = await Promise.all([
     pool.query(
       `SELECT i."idCargaCombustible", i.fecha, i.cantidad, i."unidadMedida", i.kilometraje, i.confiable, i.km, i.valido,
               CASE WHEN i.valido THEN ROUND(i."cantidadTramo" / i.km * 100, 2) END AS eficiencia,
               t.nombre AS "tipoCombustible", c.lugar, c.fuente,
               ch.nombre AS "nombreChofer", ch.apellido AS "apellidoChofer"
-       FROM (${CARGAS}) i
+       FROM (${cargasDe("$2")}) i
        JOIN "CargasCombustible" c ON c."idCargaCombustible" = i."idCargaCombustible"
        JOIN "TiposCombustible" t ON t."idTipoCombustible" = c."idTipoCombustible"
        LEFT JOIN "Choferes" ch ON ch."idChofer" = c."idChofer"
@@ -80,10 +88,8 @@ export async function cargasDeUnidadEnMes(idUnidad, mes) {
        ORDER BY i.fecha`,
       [mes, idUnidad]
     ),
-    pool.query(
-      `SELECT * FROM (${eficiencia(INICIO_MES, FIN_MES)}) e WHERE "idUnidad" = $2 ORDER BY "unidadMedida"`,
-      [mes, idUnidad]
-    )
+    eficienciaDeUnidadesDelMes(mes)
   ]);
-  return { unidad: unidad.rows[0], cargas: cargas.rows, eficiencia: consumo.rows };
+  const consumo = delMes.filter((fila) => fila.idUnidad === idUnidad);
+  return { unidad: unidad.rows[0], cargas: cargas.rows, eficiencia: consumo };
 }

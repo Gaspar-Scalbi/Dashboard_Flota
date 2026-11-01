@@ -121,13 +121,15 @@ Abrir [http://localhost:5173/](http://localhost:5173/).
 
 ## Importación desde la réplica
 
-1. Consulta el estado de la réplica y anota la generación de la publicación.
-2. Descarga las siete entidades en páginas de 500 registros y las guarda en `importacion.registros`.
+1. Consulta el estado de la réplica. Si la generación de la publicación es la misma de la última importación, no descarga nada.
+2. Descarga las entidades en páginas de 500 registros y las guarda en `importacion.registros`. La importación es completa al iniciar y en la primera importación después de las 3 de la mañana; el resto son incrementales y de combustible solo bajan las últimas 600 cargas.
 3. Vuelve a consultar el estado. Si la generación cambió, reinicia la descarga (hasta tres intentos).
-4. En una transacción vacía las tablas del modelo, valida cada registro en JavaScript y carga los válidos. Los rechazados se cuentan con su motivo.
+4. En una transacción valida cada registro en JavaScript y carga los válidos: la completa vacía y recarga el modelo, y la incremental actualiza solo lo que cambió. Los rechazados se cuentan con su motivo.
 5. Registra el resultado en `importacion.estado`. Si algo falla, la transacción se revierte y el tablero conserva la última carga completa.
 
-La réplica solo permite exportar si la última publicación del sistema de gestión tiene menos de 15 minutos. Cuando el sistema de gestión no está publicando, la importación queda registrada como fallida y el tablero sigue mostrando los datos anteriores.
+La API guarda en memoria el resultado de cada consulta hasta la próxima importación, y el frontend precarga las pantallas principales al iniciar sesión.
+
+La réplica solo permite exportar si la última publicación del sistema de gestión tiene menos de 15 minutos. Cuando el sistema de gestión no está publicando, la importación queda registrada como `pausado` y el tablero sigue mostrando los datos anteriores.
 
 ## Rutas de la API
 
