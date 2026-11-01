@@ -1,19 +1,76 @@
 import { pool } from "../db.js";
 import { enCache } from "../libs/cache.js";
 import {
-  DESDE_12_MESES, HASTA_12_MESES, UNIDADES, cargasDe, eficiencia, contarColores
+  DESDE_12_MESES, HASTA_12_MESES, UNIDADES, CARGAS, cargasDe, eficiencia, contarColores
 } from "./comunes.js";
 
+// Consumo de los últimos 12 meses: lo cargado en cada mes y lo consumido, con cada tramo repartido por días.
 export async function consumoMensual() {
   const { rows } = await pool.query(
-    `SELECT to_char(m.mes, 'YYYY-MM') AS mes,
-            COALESCE(SUM(c.cantidad) FILTER (WHERE c."unidadMedida" = 'L'), 0) AS litros,
-            COALESCE(SUM(c.cantidad) FILTER (WHERE c."unidadMedida" = 'm³'), 0) AS "metrosCubicos",
-            COUNT(c."idCargaCombustible")::int AS cargas
-     FROM generate_series(${DESDE_12_MESES}, ${HASTA_12_MESES} - interval '1 month', interval '1 month') AS m(mes)
-     LEFT JOIN "CargasCombustible" c ON c.fecha >= m.mes AND c.fecha < m.mes + interval '1 month'
-     GROUP BY m.mes
-     ORDER BY m.mes`
+    `WITH meses AS (
+         SELECT mes
+         FROM generate_series(${DESDE_12_MESES}, ${HASTA_12_MESES} - interval '1 month', interval '1 month') AS m(mes)
+     ),
+     cargas AS (
+         SELECT m.mes,
+                COALESCE(SUM(c.cantidad) FILTER (WHERE c."unidadMedida" = 'L'), 0) AS litros,
+                COALESCE(SUM(c.cantidad) FILTER (WHERE c."unidadMedida" = 'm³'), 0) AS "metrosCubicos",
+                COUNT(c."idCargaCombustible")::int AS cargas
+         FROM meses m
+         LEFT JOIN "CargasCombustible" c ON c.fecha >= m.mes AND c.fecha < m.mes + interval '1 month'
+         GROUP BY m.mes
+     ),
+     lecturas AS (
+         SELECT c."unidadMedida", c.fecha AS hasta, c.km, c."cantidadTramo" AS cantidad, c.valido,
+                LAG(c.fecha) OVER (PARTITION BY c."idUnidad", c."unidadMedida"
+                                   ORDER BY c.fecha, c."idCargaCombustible") AS desde
+         FROM (${CARGAS}) c
+         WHERE c.confiable
+     ),
+     repartidos AS (
+         SELECT m.mes, l."unidadMedida", l.km * p.parte AS km, l.cantidad * p.parte AS cantidad
+         FROM lecturas l
+         JOIN meses m ON m.mes <= l.hasta AND m.mes + interval '1 month' > l.desde
+         CROSS JOIN LATERAL (
+             SELECT CASE WHEN l.hasta = l.desde THEN 1
+                         ELSE GREATEST(EXTRACT(EPOCH FROM LEAST(l.hasta, m.mes + interval '1 month') - GREATEST(l.desde, m.mes)), 0)
+                              / EXTRACT(EPOCH FROM l.hasta - l.desde) END AS parte
+         ) p
+         WHERE l.valido
+     ),
+     consumos AS (
+         SELECT r.mes, r."unidadMedida", SUM(r.cantidad) AS cantidad, SUM(r.km) AS km
+         FROM repartidos r
+         GROUP BY r.mes, r."unidadMedida"
+     ),
+     promedios AS (
+         SELECT c."unidadMedida", SUM(c.cantidad) / SUM(c.km) AS promedio
+         FROM consumos c
+         GROUP BY c."unidadMedida"
+     ),
+     general AS (
+         SELECT c.mes, ROUND((SUM(c.cantidad) / SUM(c.km * p.promedio) - 1) * 100, 1) AS diferencia
+         FROM consumos c
+         JOIN promedios p ON p."unidadMedida" = c."unidadMedida"
+         GROUP BY c.mes
+     )
+     SELECT to_char(ca.mes, 'YYYY-MM') AS mes, ca.litros, ca."metrosCubicos", ca.cargas,
+            ROUND(l.km)::int AS "kmLitros", ROUND(l.cantidad, 2) AS "litrosConsumidos",
+            ROUND(l.cantidad / NULLIF(l.km, 0) * 100, 2) AS "eficienciaLitros",
+            ROUND(gn.km)::int AS "kmMetrosCubicos", ROUND(gn.cantidad, 2) AS "metrosCubicosConsumidos",
+            ROUND(gn.cantidad / NULLIF(gn.km, 0) * 100, 2) AS "eficienciaMetrosCubicos",
+            g.diferencia AS "eficienciaGeneral",
+            CASE
+                WHEN g.diferencia IS NULL THEN 'gris'
+                WHEN g.diferencia <= 0 THEN 'verde'
+                WHEN g.diferencia <= 15 THEN 'amarillo'
+                ELSE 'rojo'
+            END AS "semaforoGeneral"
+     FROM cargas ca
+     LEFT JOIN consumos l ON l.mes = ca.mes AND l."unidadMedida" = 'L'
+     LEFT JOIN consumos gn ON gn.mes = ca.mes AND gn."unidadMedida" = 'm³'
+     LEFT JOIN general g ON g.mes = ca.mes
+     ORDER BY ca.mes`
   );
   return rows;
 }
@@ -29,8 +86,6 @@ async function eficienciaFlota(desde, hasta, parametros = []) {
   );
   return rows;
 }
-
-export const eficienciaFlota12Meses = () => eficienciaFlota(DESDE_12_MESES, HASTA_12_MESES);
 
 export async function semaforoEficiencia12Meses() {
   const { rows } = await pool.query(

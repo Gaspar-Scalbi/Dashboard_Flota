@@ -1,17 +1,13 @@
 import { enCache } from "../libs/cache.js";
 import {
   consumoMensual,
-  eficienciaFlota12Meses,
   unidadesDelMes,
   cargasDeUnidadEnMes
 } from "../consultas/combustible.js";
 
 const esMes = (mes) => /^\d{4}-(0[1-9]|1[0-2])$/.test(mes);
 
-export const datosCombustible = () => enCache("combustible", async () => {
-  const [consumo, eficiencia] = await Promise.all([consumoMensual(), eficienciaFlota12Meses()]);
-  return { consumo, eficiencia };
-});
+export const datosCombustible = () => enCache("combustible", async () => ({ consumo: await consumoMensual() }));
 export const datosMes = (mes) => enCache(`combustible/${mes}`, () => unidadesDelMes(mes));
 export const datosCargasDeUnidad = (idUnidad, mes) =>
   enCache(`combustible/${mes}/${idUnidad}`, () => cargasDeUnidadEnMes(idUnidad, mes));
