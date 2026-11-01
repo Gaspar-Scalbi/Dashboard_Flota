@@ -56,6 +56,9 @@ export default function CombustiblePage() {
                     { titulo: "Mes", valor: (mes) => nombreMes(mes.mes) },
                     { titulo: "Gasoil cargado", clase: "numero", valor: (mes) => cantidad(mes.litros, "L") },
                     { titulo: "GNC cargado", clase: "numero", valor: (mes) => cantidad(mes.metrosCubicos, "m³") },
+                    { titulo: "Km recorridos", clase: "numero",
+                      valor: (mes) => kilometros(mes.kmLitros == null && mes.kmMetrosCubicos == null
+                        ? null : (mes.kmLitros ?? 0) + (mes.kmMetrosCubicos ?? 0)) },
                     { titulo: "Cargas", clase: "numero", valor: (mes) => numero(mes.cargas) }
                   ]} />
               </Panel>
