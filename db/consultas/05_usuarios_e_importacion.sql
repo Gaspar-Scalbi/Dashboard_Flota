@@ -2,16 +2,16 @@
 -- Consultas sobre los usuarios del tablero y la importación desde la réplica.
 
 -- 1. Usuarios del tablero (la contraseña se guarda como hash de bcrypt, nunca en texto).
-SELECT "idUsuario", "nombreUsuario", nombre, activo
+SELECT "idUsuario" AS "Id_Usuario", "nombreUsuario" AS "Nombre_Usuario", nombre AS "Nombre", activo AS "Activo"
 FROM "Usuarios"
 ORDER BY "idUsuario";
 
 -- 2. Resultado de la última importación.
-SELECT "ultimoIntento", "resultadoUltimoIntento", "mensajeUltimoIntento", "ultimaCargaExitosa", generacion, "datosAl"
+SELECT "ultimoIntento" AS "Ultimo_Intento", "resultadoUltimoIntento" AS "Resultado_Ultimo_Intento", "mensajeUltimoIntento" AS "Mensaje_Ultimo_Intento", "ultimaCargaExitosa" AS "Ultima_Carga_Exitosa", generacion AS "Generacion", "datosAl" AS "Datos_Al"
 FROM importacion.estado;
 
 -- 3. Cantidad de registros recibidos por entidad en la zona previa.
-SELECT entidad, COUNT(*) AS "Registros"
+SELECT entidad AS "Entidad", COUNT(*) AS "Registros"
 FROM importacion.registros
 GROUP BY entidad
 ORDER BY entidad;
